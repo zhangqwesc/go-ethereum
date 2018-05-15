@@ -816,6 +816,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
 		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
 		rawdb.WriteTxLookupEntries(batch, block)
+		rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 
 		stats.processed++
 
@@ -975,6 +976,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		}
 		// Write the positional metadata for transaction/receipt lookups and preimages
 		rawdb.WriteTxLookupEntries(batch, block)
+		rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 		rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
 
 		status = CanonStatTy
@@ -1324,6 +1326,13 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	}
 	// Insert the new chain, taking care of the proper incremental order
 	var addedTxs types.Transactions
+	for _, block := range oldChain {
+		rawdb.DeleteAddrTxs(bc.chainConfig, bc.db, block)
+	}
+	for _, block := range newChain {
+		receipts := rawdb.ReadReceipts(bc.db, block.Hash(), block.NumberU64())
+		rawdb.WriteAddrTxs(bc.chainConfig, bc.db, block, receipts)
+	}
 	for i := len(newChain) - 1; i >= 0; i-- {
 		// insert the block in the canonical way, re-writing history
 		bc.insert(newChain[i])

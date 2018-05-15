@@ -19,6 +19,7 @@ package rawdb
 
 import (
 	"encoding/binary"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -50,8 +51,9 @@ var (
 	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 
-	txLookupPrefix  = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
-	bloomBitsPrefix = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
+	txLookupPrefix  = []byte("l")    // txLookupPrefix + hash -> transaction/receipt lookup metadata
+	addrTxsPrefix   = []byte("addr") //addrTxsPrefix + address + timestamp + hash + direction -> addrTx metadata
+	bloomBitsPrefix = []byte("B")    // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db
@@ -69,6 +71,20 @@ type TxLookupEntry struct {
 	BlockHash  common.Hash
 	BlockIndex uint64
 	Index      uint64
+}
+
+// AddrTxEntry is indexDb's value
+// addrTxsPrefix + address + timestamp + hash + direction is key
+type AddrTxEntry struct {
+	From         common.Address `json:"from"`
+	To           common.Address `json:"to"`
+	Value        *big.Int       `json:"value"`
+	GasPrice     *big.Int       `json:"gasPrice"`
+	GasUsed      uint64         `json:"gasUsed"`
+	BlockHash    common.Hash    `json:"blockHash"`
+	BlockNumber  *big.Int       `json:"blockNumber"`
+	ContractAddr common.Address `json:"contractAddr"`
+	Status       uint           `json:"status"`
 }
 
 // encodeBlockNumber encodes a block number as big endian uint64
