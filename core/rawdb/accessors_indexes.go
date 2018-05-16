@@ -67,13 +67,14 @@ func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
 	db.Delete(append(txLookupPrefix, hash.Bytes()...))
 }
 
-func encodeAddrTxsKey(address common.Address, timestamp *big.Int, hash common.Hash, direction byte) []byte {
-	data := make([]byte, 0, 65) //addrTxsPrefix(4) + address(20) + timestamp(8) + hash(32) + direction(1) = 65
+func encodeAddrTxsKey(address common.Address, timestamp *big.Int, hash common.Hash, direction, kindof byte) []byte {
+	data := make([]byte, 0, 66) //addrTxsPrefix(4) + address(20) + timestamp(8) + hash(32) + direction(1) + kindof(1) = 65
 	data = append(data, addrTxsPrefix...)
 	data = append(data, address.Bytes()...)
 	data = append(data, timestamp.Bytes()...)
 	data = append(data, hash.Bytes()...)
 	data = append(data, direction)
+	data = append(data, kindof)
 	return data
 }
 
@@ -104,10 +105,17 @@ func WriteAddrTxs(config *params.ChainConfig, db DatabaseWriter, block *types.Bl
 		gasPrice := tx.GasPrice()
 		gasUsed := receipt.GasUsed
 		hash := tx.Hash()
-		contractAddr := receipt.ContractAddress
+		kindof := byte('s') // 's' for send, 'c' for contract creation
 		status := receipt.Status
 
-		entry := AddrTxEntry{from, *to, value, gasPrice, gasUsed, blockHash, blockNumber, contractAddr, status}
+		if to == nil {
+			if to = &receipt.ContractAddress; to == nil {
+				log.Crit("both 'To' 'ContractAddress are nil", "BlockNumber", blockNumber, "TransactionHash", tx.Hash().Hex())
+			}
+			kindof = byte('c')
+		}
+
+		entry := AddrTxEntry{from, *to, value, gasPrice, gasUsed, blockHash, blockNumber, status}
 
 		putValue, err := rlp.EncodeToBytes(entry)
 		if err != nil {
@@ -115,22 +123,42 @@ func WriteAddrTxs(config *params.ChainConfig, db DatabaseWriter, block *types.Bl
 		}
 
 		//indexes from address
-		if err := db.Put(encodeAddrTxsKey(from, time, hash, byte(1)), putValue); err != nil {
+		if err := db.Put(encodeAddrTxsKey(from, time, hash, byte('f'), kindof), putValue); err != nil {
 			log.Crit("Failed to store AddrTxEntry for from")
 		}
 		//indexes to address
-		if err := db.Put(encodeAddrTxsKey(*to, time, hash, byte(0)), putValue); err != nil {
-			log.Crit("Failed to store AddrTxEntry for to")
+		if kindof == byte('s') {
+			if err := db.Put(encodeAddrTxsKey(*to, time, hash, byte('t'), kindof), putValue); err != nil {
+				log.Crit("Failed to store AddrTxEntry for to")
+			}
 		}
 	}
-	log.Warn("WriteAddrTxs success", "BlockNumber", block.NumberU64())
 }
 
 // DeleteAddrTxs removes all transaction
 func DeleteAddrTxs(config *params.ChainConfig, db DatabaseDeleter, block *types.Block) {
-	// time := block.Time()
-	// signer := types.MakeSigner(config, block.Number())
+	time := block.Time()
+	signer := types.MakeSigner(config, block.Number())
+	for _, tx := range block.Transactions() {
+		from, _ := types.Sender(signer, tx)
+		to := tx.To()
+		hash := tx.Hash()
+		kindof := byte('s')
+		if to == nil {
+			kindof = byte('c')
+		}
 
+		//delete from address
+		if err := db.Delete(encodeAddrTxsKey(from, time, hash, byte('f'), kindof)); err != nil {
+			log.Crit("Failed to delete AddrTxEntry for from")
+		}
+		//delete to address
+		if kindof == byte('s') {
+			if err := db.Delete(encodeAddrTxsKey(*to, time, hash, byte('t'), kindof)); err != nil {
+				log.Crit("Failed to delete AddrTxEntry for to")
+			}
+		}
+	}
 }
 
 // ReadTransaction retrieves a specific transaction from the database, along with
