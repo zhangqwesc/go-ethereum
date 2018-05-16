@@ -76,15 +76,14 @@ type TxLookupEntry struct {
 // AddrTxEntry is indexDb's value
 // addrTxsPrefix + address + timestamp + hash + direction is key
 type AddrTxEntry struct {
-	From         common.Address `json:"from"`
-	To           common.Address `json:"to"`
-	Value        *big.Int       `json:"value"`
-	GasPrice     *big.Int       `json:"gasPrice"`
-	GasUsed      uint64         `json:"gasUsed"`
-	BlockHash    common.Hash    `json:"blockHash"`
-	BlockNumber  *big.Int       `json:"blockNumber"`
-	ContractAddr common.Address `json:"contractAddr"`
-	Status       uint           `json:"status"`
+	From        common.Address `json:"from"`
+	To          common.Address `json:"to"`
+	Value       *big.Int       `json:"value"`
+	GasPrice    *big.Int       `json:"gasPrice"`
+	GasUsed     uint64         `json:"gasUsed"`
+	BlockHash   common.Hash    `json:"blockHash"`
+	BlockNumber *big.Int       `json:"blockNumber"`
+	Status      uint           `json:"status"`
 }
 
 // encodeBlockNumber encodes a block number as big endian uint64
