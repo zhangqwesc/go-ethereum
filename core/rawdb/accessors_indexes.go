@@ -24,6 +24,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -71,24 +72,42 @@ func encodeAddrTxsKey(address common.Address, timestamp *big.Int, hash common.Ha
 	data := make([]byte, 0, 66) //addrTxsPrefix(4) + address(20) + timestamp(8) + hash(32) + direction(1) + kindof(1) = 65
 	data = append(data, addrTxsPrefix...)
 	data = append(data, address.Bytes()...)
-	data = append(data, timestamp.Bytes()...)
+	timeBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(timeBytes, timestamp.Uint64())
+	data = append(data, timeBytes...)
 	data = append(data, hash.Bytes()...)
 	data = append(data, direction)
 	data = append(data, kindof)
 	return data
 }
 
-func decodeAddrTxsKey(data []byte) (address common.Address, timestamp *big.Int, hash common.Hash, direction byte) {
+func decodeAddrTxsKey(data []byte) (address common.Address, timestamp uint64, hash common.Hash, direction, kindof byte) {
 	address.SetBytes(data[4:24])
-	timestamp.SetBytes(data[24:32])
+	timestamp = binary.LittleEndian.Uint64(data[24:32])
 	hash.SetBytes(data[32:64])
 	direction = data[64]
+	kindof = data[65]
 	return
 }
 
 // ReadAddrTxs return all transactions that address send or receive
-func ReadAddrTxs(db DatabaseReader, address common.Address) {
+func ReadAddrTxs(ldb *ethdb.LDBDatabase, address common.Address) (list []RPCAddrTxEntry) {
+	preBytes := make([]byte, 0, 24) //prefix(4) + address(20) = 24
+	preBytes = append(preBytes, addrTxsPrefix...)
+	preBytes = append(preBytes, address.Bytes()...)
 
+	it := ldb.NewIteratorWithPrefix(preBytes)
+
+	for it.Next() {
+		var entry AddrTxEntry
+		_, time, hash, _, kindof := decodeAddrTxsKey(it.Key())
+		if err := rlp.DecodeBytes(it.Value(), &entry); err != nil {
+			log.Crit("Invalid AddrTxEntry RLP", "err", err, "txHash", hash)
+		}
+		list = append(list, RPCAddrTxEntry{entry, time, hash, kindof})
+	}
+
+	return
 }
 
 // WriteAddrTxs stores all address's transations
@@ -105,14 +124,14 @@ func WriteAddrTxs(config *params.ChainConfig, db DatabaseWriter, block *types.Bl
 		gasPrice := tx.GasPrice()
 		gasUsed := receipt.GasUsed
 		hash := tx.Hash()
-		kindof := byte('s') // 's' for send, 'c' for contract creation
+		kindof := byte(0) // 0 for send, 1 for contract creation
 		status := receipt.Status
 
 		if to == nil {
 			if to = &receipt.ContractAddress; to == nil {
 				log.Crit("both 'To' 'ContractAddress are nil", "BlockNumber", blockNumber, "TransactionHash", tx.Hash().Hex())
 			}
-			kindof = byte('c')
+			kindof = byte(1)
 		}
 
 		entry := AddrTxEntry{from, *to, value, gasPrice, gasUsed, blockHash, blockNumber, status}
