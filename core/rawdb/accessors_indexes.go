@@ -73,7 +73,7 @@ func encodeAddrTxsKey(address common.Address, timestamp *big.Int, hash common.Ha
 	data = append(data, addrTxsPrefix...)
 	data = append(data, address.Bytes()...)
 	timeBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timeBytes, timestamp.Uint64())
+	binary.BigEndian.PutUint64(timeBytes, ^(timestamp.Uint64()))
 	data = append(data, timeBytes...)
 	data = append(data, hash.Bytes()...)
 	data = append(data, direction)
@@ -83,7 +83,8 @@ func encodeAddrTxsKey(address common.Address, timestamp *big.Int, hash common.Ha
 
 func decodeAddrTxsKey(data []byte) (address common.Address, timestamp uint64, hash common.Hash, direction, kindof byte) {
 	address.SetBytes(data[4:24])
-	timestamp = binary.LittleEndian.Uint64(data[24:32])
+	timestamp = binary.BigEndian.Uint64(data[24:32])
+	timestamp = ^timestamp
 	hash.SetBytes(data[32:64])
 	direction = data[64]
 	kindof = data[65]
@@ -105,6 +106,11 @@ func ReadAddrTxs(ldb *ethdb.LDBDatabase, address common.Address) (list []RPCAddr
 			log.Crit("Invalid AddrTxEntry RLP", "err", err, "txHash", hash)
 		}
 		list = append(list, RPCAddrTxEntry{entry, time, hash, kindof})
+	}
+
+	if len(list) == 0 {
+		list = []RPCAddrTxEntry{}
+		return
 	}
 
 	return
