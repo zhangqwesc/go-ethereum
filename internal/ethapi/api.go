@@ -185,12 +185,12 @@ func NewPublicGethAPI(b Backend) *PublicGethAPI {
 	return &PublicGethAPI{b}
 }
 
-func (s *PublicGethAPI) GetAddressTransactions(address common.Address) ([]rawdb.RPCAddrTxEntry, error) {
+func (s *PublicGethAPI) GetAddressTransactions(address common.Address, start, end int) ([]rawdb.RPCAddrTxEntry, error) {
 	ldb, ok := s.b.ChainDb().(*ethdb.LDBDatabase)
 	if !ok {
 		log.Crit("Failed cast db to level db", "func", "GetAddressTransactions")
 	}
-	return rawdb.ReadAddrTxs(ldb, address), nil
+	return rawdb.ReadAddrTxs(ldb, address, start, end)
 }
 
 // PublicAccountAPI provides an API to access accounts managed by this node.

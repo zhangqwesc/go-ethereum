@@ -18,6 +18,7 @@ package rawdb
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/params"
@@ -92,7 +93,23 @@ func decodeAddrTxsKey(data []byte) (address common.Address, timestamp uint64, ha
 }
 
 // ReadAddrTxs return all transactions that address send or receive
-func ReadAddrTxs(ldb *ethdb.LDBDatabase, address common.Address) (list []RPCAddrTxEntry) {
+// if end < 0, return all remainning
+func ReadAddrTxs(ldb *ethdb.LDBDatabase, address common.Address, start, end int) (list []RPCAddrTxEntry, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("get a fatal error: %v", e)
+			return
+		}
+	}()
+
+	if end >= 0 && start >= end {
+		list = []RPCAddrTxEntry{}
+		return
+	}
+	if start < 0 {
+		list = []RPCAddrTxEntry{}
+		return
+	}
 	preBytes := make([]byte, 0, 24) //prefix(4) + address(20) = 24
 	preBytes = append(preBytes, addrTxsPrefix...)
 	preBytes = append(preBytes, address.Bytes()...)
@@ -113,6 +130,14 @@ func ReadAddrTxs(ldb *ethdb.LDBDatabase, address common.Address) (list []RPCAddr
 		return
 	}
 
+	if start >= len(list) {
+		list = []RPCAddrTxEntry{}
+		return
+	}
+	if end > len(list) || end < 0 {
+		end = len(list)
+	}
+	list = list[start:end]
 	return
 }
 

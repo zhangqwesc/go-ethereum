@@ -434,8 +434,8 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getAddressTransactions',
 			call: 'eth_getAddressTransactions',
-			params: 1,
-			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+			params: 3,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null, null]
 		}),
 	],
 	properties: [
