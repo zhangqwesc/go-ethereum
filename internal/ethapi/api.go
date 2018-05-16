@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
@@ -174,6 +175,22 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 		content["queued"][account.Hex()] = dump
 	}
 	return content
+}
+
+type PublicGethAPI struct {
+	b Backend
+}
+
+func NewPublicGethAPI(b Backend) *PublicGethAPI {
+	return &PublicGethAPI{b}
+}
+
+func (s *PublicGethAPI) GetAddressTransactions(address common.Address) ([]rawdb.RPCAddrTxEntry, error) {
+	ldb, ok := s.b.ChainDb().(*ethdb.LDBDatabase)
+	if !ok {
+		log.Crit("Failed cast db to level db", "func", "GetAddressTransactions")
+	}
+	return rawdb.ReadAddrTxs(ldb, address), nil
 }
 
 // PublicAccountAPI provides an API to access accounts managed by this node.

@@ -52,7 +52,7 @@ var (
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 
 	txLookupPrefix  = []byte("l")    // txLookupPrefix + hash -> transaction/receipt lookup metadata
-	addrTxsPrefix   = []byte("addr") //addrTxsPrefix + address + timestamp + hash + direction -> addrTx metadata
+	addrTxsPrefix   = []byte("addr") //addrTxsPrefix + address + timestamp + hash + direction + kindof -> addrTx metadata
 	bloomBitsPrefix = []byte("B")    // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
@@ -74,7 +74,7 @@ type TxLookupEntry struct {
 }
 
 // AddrTxEntry is indexDb's value
-// addrTxsPrefix + address + timestamp + hash + direction is key
+// addrTxsPrefix + address + timestamp + hash + direction + kind is key
 type AddrTxEntry struct {
 	From        common.Address `json:"from"`
 	To          common.Address `json:"to"`
@@ -84,6 +84,14 @@ type AddrTxEntry struct {
 	BlockHash   common.Hash    `json:"blockHash"`
 	BlockNumber *big.Int       `json:"blockNumber"`
 	Status      uint           `json:"status"`
+}
+
+// RPCAddrTxEntry is summary infomation of indexDb's key and value
+type RPCAddrTxEntry struct {
+	AddrTxEntry
+	Time uint64      `json:"timestamp"`
+	Hash common.Hash `json:"hash"`
+	Kind byte        `json:"kind"`
 }
 
 // encodeBlockNumber encodes a block number as big endian uint64
