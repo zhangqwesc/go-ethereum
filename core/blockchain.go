@@ -270,6 +270,8 @@ func (bc *BlockChain) SetHead(head uint64) error {
 
 	// Rewind the header chain, deleting all block bodies until then
 	delFn := func(hash common.Hash, num uint64) {
+		blk := bc.GetBlock(hash, num)
+		rawdb.DeleteAddrTxs(bc.chainConfig, bc.db, blk)
 		rawdb.DeleteBody(bc.db, hash, num)
 	}
 	bc.hc.SetHead(head, delFn)
@@ -957,6 +959,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		}
 	}
 	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
+	rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -976,7 +979,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		}
 		// Write the positional metadata for transaction/receipt lookups and preimages
 		rawdb.WriteTxLookupEntries(batch, block)
-		rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 		rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
 
 		status = CanonStatTy
@@ -1334,13 +1336,6 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		addedTxs = append(addedTxs, newChain[i].Transactions()...)
 	}
 
-	for _, block := range oldChain {
-		rawdb.DeleteAddrTxs(bc.chainConfig, bc.db, block)
-	}
-	for _, block := range newChain {
-		receipts := rawdb.ReadReceipts(bc.db, block.Hash(), block.NumberU64())
-		rawdb.WriteAddrTxs(bc.chainConfig, bc.db, block, receipts)
-	}
 	// calculate the difference between deleted and added transactions
 	diff := types.TxDifference(deletedTxs, addedTxs)
 	// When transactions get deleted from the database that means the

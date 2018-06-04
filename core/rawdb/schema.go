@@ -83,7 +83,7 @@ type AddrTxEntry struct {
 	GasUsed     uint64         `json:"gasUsed"`
 	BlockHash   common.Hash    `json:"blockHash"`
 	BlockNumber *big.Int       `json:"blockNumber"`
-	Status      uint           `json:"status"`
+	Status      uint64         `json:"status"`
 }
 
 // RPCAddrTxEntry is summary infomation of indexDb's key and value
