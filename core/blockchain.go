@@ -270,8 +270,6 @@ func (bc *BlockChain) SetHead(head uint64) error {
 
 	// Rewind the header chain, deleting all block bodies until then
 	delFn := func(hash common.Hash, num uint64) {
-		blk := bc.GetBlock(hash, num)
-		rawdb.DeleteAddrTxs(bc.chainConfig, bc.db, blk)
 		rawdb.DeleteBody(bc.db, hash, num)
 	}
 	bc.hc.SetHead(head, delFn)
@@ -959,7 +957,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		}
 	}
 	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
-	rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -973,13 +970,14 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	if reorg {
 		// Reorganise the chain if the parent is not the head block
 		if block.ParentHash() != currentBlock.Hash() {
-			if err := bc.reorg(currentBlock, block); err != nil {
+			if err := bc.reorg(currentBlock, block, receipts); err != nil {
 				return NonStatTy, err
 			}
 		}
 		// Write the positional metadata for transaction/receipt lookups and preimages
 		rawdb.WriteTxLookupEntries(batch, block)
 		rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
+		rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 
 		status = CanonStatTy
 	} else {
@@ -1247,7 +1245,7 @@ func countTransactions(chain []*types.Block) (c int) {
 // reorgs takes two blocks, an old chain and a new chain and will reconstruct the blocks and inserts them
 // to be part of the new canonical chain and accumulates potential missing transactions and post an
 // event about them
-func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
+func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block, receipts []*types.Receipt) error {
 	var (
 		newChain    types.Blocks
 		oldChain    types.Blocks
@@ -1326,6 +1324,23 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	} else {
 		log.Error("Impossible reorg, please file an issue", "oldnum", oldBlock.Number(), "oldhash", oldBlock.Hash(), "newnum", newBlock.Number(), "newhash", newBlock.Hash())
 	}
+
+	if len(newChain) > 0 {
+		rawdb.WriteAddrTxs(bc.chainConfig, bc.db, newChain[0], receipts)
+		for i := 1; i < len(newChain); i++ {
+			rs := rawdb.ReadReceipts(bc.db, newChain[i].Hash(), newChain[i].NumberU64())
+			if len(rs) != len(newChain[i].Transactions()) {
+				log.Error("receipts and txns length do not match", "blockNumber", newChain[i].Number(), "blockHash", newChain[i].Hash(),
+					"txnsLength", len(newChain[i].Transactions()), "receiptsLength", len(rs))
+				continue
+			}
+			rawdb.WriteAddrTxs(bc.chainConfig, bc.db, newChain[0], rs)
+		}
+	}
+	for _, blk := range oldChain {
+		rawdb.DeleteAddrTxs(bc.chainConfig, bc.db, blk)
+	}
+
 	// Insert the new chain, taking care of the proper incremental order
 	var addedTxs types.Transactions
 	for i := len(newChain) - 1; i >= 0; i-- {
