@@ -953,6 +953,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		}
 	}
 	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
+	rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -973,7 +974,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Write the positional metadata for transaction/receipt lookups and preimages
 		rawdb.WriteTxLookupEntries(batch, block)
 		rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
-		rawdb.WriteAddrTxs(bc.chainConfig, batch, block, receipts)
 
 		status = CanonStatTy
 	} else {
@@ -1330,18 +1330,6 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block, receipts []*types.R
 		log.Error("Impossible reorg, please file an issue", "oldnum", oldBlock.Number(), "oldhash", oldBlock.Hash(), "newnum", newBlock.Number(), "newhash", newBlock.Hash())
 	}
 
-	if len(newChain) > 0 {
-		rawdb.WriteAddrTxs(bc.chainConfig, bc.db, newChain[0], receipts)
-		for i := 1; i < len(newChain); i++ {
-			rs := rawdb.ReadReceipts(bc.db, newChain[i].Hash(), newChain[i].NumberU64())
-			if len(rs) != len(newChain[i].Transactions()) {
-				log.Error("receipts and txns length do not match", "blockNumber", newChain[i].Number(), "blockHash", newChain[i].Hash(),
-					"txnsLength", len(newChain[i].Transactions()), "receiptsLength", len(rs))
-				continue
-			}
-			rawdb.WriteAddrTxs(bc.chainConfig, bc.db, newChain[0], rs)
-		}
-	}
 	for _, blk := range oldChain {
 		rawdb.DeleteAddrTxs(bc.chainConfig, bc.db, blk)
 	}
