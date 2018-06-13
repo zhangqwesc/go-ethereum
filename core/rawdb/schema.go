@@ -19,6 +19,7 @@ package rawdb
 
 import (
 	"encoding/binary"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -46,7 +47,7 @@ var (
 	headerTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
 	headerHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
 	headerNumberPrefix = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
-	erc20TokenPrefix   = []byte("e") // erc20TokenPrefix + address + contractAddress + ^timestamp + txHash + directi -> anotherAddress + blockNumber + blockHash + value
+	erc20TokenPrefix   = []byte("e") // erc20TokenPrefix + address + contractAddress + ^timestamp + txHash + direction -> anotherAddress + value
 	erc20OwnerPrefix   = []byte("E") // erc20OwnerPrefix + address + contractAddress -> nil
 
 	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
@@ -133,4 +134,13 @@ func preimageKey(hash common.Hash) []byte {
 // configKey = configPrefix + hash
 func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
+}
+
+//RPCTokenTransferEntry is summary information of token transfer
+type RPCTokenTransferEntry struct {
+	From  common.Address `json:"from"`
+	To    common.Address `json:"to"`
+	Value *big.Int       `json:"value"`
+	Hash  common.Hash    `json:"hash"`
+	Time  uint64         `json:"timestamp"`
 }

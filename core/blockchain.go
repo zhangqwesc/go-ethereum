@@ -1264,13 +1264,21 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 			if number == nil {
 				return
 			}
+			var rmTokenTransferLogs []*types.Log
 			receipts := rawdb.ReadReceipts(bc.db, hash, *number)
 			for _, receipt := range receipts {
 				for _, log := range receipt.Logs {
 					del := *log
 					del.Removed = true
 					deletedLogs = append(deletedLogs, &del)
+					if del.Topics[0] == rawdb.TransferFilter {
+						rmTokenTransferLogs = append(rmTokenTransferLogs, &del)
+					}
 				}
+			}
+			if len(rmTokenTransferLogs) > 0 {
+				time := bc.hc.GetHeader(hash, *number).Time.Uint64()
+				rawdb.DeleteTokenTransfer(bc.db, rmTokenTransferLogs, time)
 			}
 		}
 	)
