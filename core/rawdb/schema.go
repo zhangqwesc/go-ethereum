@@ -46,6 +46,8 @@ var (
 	headerTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
 	headerHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
 	headerNumberPrefix = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	erc20TokenPrefix   = []byte("e") // erc20TokenPrefix + address + contractAddress + ^timestamp + txHash + directi -> anotherAddress + blockNumber + blockHash + value
+	erc20OwnerPrefix   = []byte("E") // erc20OwnerPrefix + address + contractAddress -> nil
 
 	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
