@@ -128,6 +128,8 @@ func ReadTokenTransfer(ldb *ethdb.LDBDatabase, address, tokenAddress *common.Add
 		}
 	}
 
+	it.Release()
+
 	if len(list) == 0 {
 		list = []RPCTokenTransferEntry{}
 		return
@@ -156,4 +158,50 @@ func DeleteTokenTransfer(db DatabaseDeleter, logs []*types.Log, time uint64) {
 			logger.Crit("Failed to delete token transfer for from")
 		}
 	}
+}
+
+//ReadTokenOwned read a address's own tokenAddress
+func ReadTokenOwned(ldb *ethdb.LDBDatabase, address *common.Address, start, end int) (list []*common.Address, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("ReadTokenTransfer get a fatal error: %v", e)
+			return
+		}
+	}()
+
+	if end >= 0 && start >= end {
+		list = []*common.Address{}
+		return
+	}
+	if start < 0 {
+		list = []*common.Address{}
+		return
+	}
+	prefix := make([]byte, 0, 21) //prefix(1) + 20
+	prefix = append(prefix, erc20OwnerPrefix...)
+	prefix = append(prefix, address.Bytes()...)
+
+	it := ldb.NewIteratorWithPrefix(prefix)
+
+	for it.Next() {
+		_, tokenAddr := decodeOwnedKey(it.Key())
+		list = append(list, &tokenAddr)
+	}
+
+	it.Release()
+
+	if len(list) == 0 {
+		list = []*common.Address{}
+		return
+	}
+
+	if start >= len(list) {
+		list = []*common.Address{}
+		return
+	}
+	if end > len(list) || end < 0 {
+		end = len(list)
+	}
+	list = list[start:end]
+	return
 }
