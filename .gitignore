@@ -27,6 +27,9 @@ build/_vendor/pkg
 /build/bin/
 /geth*.zip
 
+/cmd/geth/debug
+keyfile
+
 # travis
 profile.tmp
 profile.cov
