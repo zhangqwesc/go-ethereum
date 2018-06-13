@@ -31,7 +31,7 @@ func decodeTokenKey(data []byte) (address, tokenAddress common.Address, time uin
 	}
 	address.SetBytes(data[1:21])
 	tokenAddress.SetBytes(data[21:41])
-	time = binary.BigEndian.Uint64(data[41:49])
+	time = ^(binary.BigEndian.Uint64(data[41:49]))
 	hash.SetBytes(data[49:81])
 	direction = data[81]
 	return
@@ -65,30 +65,28 @@ func decodeOwnedKey(data []byte) (address, tokenAddress common.Address) {
 }
 
 //WriteTokenTransfer stores all token transfer, filter by event 'Transfer(address, address, uint256)'
-func WriteTokenTransfer(db DatabaseWriter, hcDb ethdb.Database, logs []*types.Log) {
-	cache := make(map[common.Hash][]byte) //cache the timestamp of the block to avoid checking the database every time
+func WriteTokenTransfer(db DatabaseWriter, timestamp uint64, logs []*types.Log) {
 	for _, log := range logs {
-		if log.Topics[0] != TransferFilter {
+		if len(log.Topics) < 3 || log.Topics[0] != TransferFilter {
 			continue
 		}
-		time, ok := cache[log.BlockHash]
-		if !ok {
-			ts := ReadHeader(hcDb, log.BlockHash, log.BlockNumber).Time.Uint64()
-			time = make([]byte, 8)
-			binary.BigEndian.PutUint64(time, ^ts)
-			cache[log.BlockHash] = time
+		time := make([]byte, 8)
+		binary.BigEndian.PutUint64(time, ^timestamp)
+		if log.Topics[1] != (common.Hash{}) {
+			if err := db.Put(encodeTokenKey(log.Topics[1], log.Address, time, log.TxHash, 1), encodeTokenValue(log.Topics[2], log.Data)); err != nil {
+				logger.Crit("Failed to store token transfer for from")
+			}
+			if err := db.Put(encodeOwnedKey(log.Topics[1], log.Address), nil); err != nil {
+				logger.Crit("Failed to store token owned for from")
+			}
 		}
-		if err := db.Put(encodeTokenKey(log.Topics[1], log.Address, time, log.TxHash, 1), encodeTokenValue(log.Topics[2], log.Data)); err != nil {
-			logger.Crit("Failed to store token transfer for from")
-		}
-		if err := db.Put(encodeTokenKey(log.Topics[2], log.Address, time, log.TxHash, 0), encodeTokenValue(log.Topics[1], log.Data)); err != nil {
-			logger.Crit("Failed to store token transfer for to")
-		}
-		if err := db.Put(encodeOwnedKey(log.Topics[1], log.Address), nil); err != nil {
-			logger.Crit("Failed to store token owned for from")
-		}
-		if err := db.Put(encodeOwnedKey(log.Topics[2], log.Address), nil); err != nil {
-			logger.Crit("Failed to store token owned for to")
+		if log.Topics[2] != (common.Hash{}) {
+			if err := db.Put(encodeTokenKey(log.Topics[2], log.Address, time, log.TxHash, 0), encodeTokenValue(log.Topics[1], log.Data)); err != nil {
+				logger.Crit("Failed to store token transfer for to")
+			}
+			if err := db.Put(encodeOwnedKey(log.Topics[2], log.Address), nil); err != nil {
+				logger.Crit("Failed to store token owned for to")
+			}
 		}
 	}
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
@@ -483,6 +484,22 @@ type PublicBlockChainAPI struct {
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
 func NewPublicBlockChainAPI(b Backend) *PublicBlockChainAPI {
 	return &PublicBlockChainAPI{b}
+}
+
+func (s *PublicBlockChainAPI) GetTokenTransfer(address, tokenAddress common.Address, start, end int) ([]rawdb.RPCTokenTransferEntry, error) {
+	ldb, ok := s.b.ChainDb().(*ethdb.LDBDatabase)
+	if !ok {
+		log.Crit("Failed cast db to level db", "func", "GetTokenTransfer")
+	}
+	return rawdb.ReadTokenTransfer(ldb, &address, &tokenAddress, start, end)
+}
+
+func (s *PublicBlockChainAPI) GetTokens(address common.Address, start, end int) ([]*common.Address, error) {
+	ldb, ok := s.b.ChainDb().(*ethdb.LDBDatabase)
+	if !ok {
+		log.Crit("Failed cast db to level db", "func", "GetTokenTransfer")
+	}
+	return rawdb.ReadTokenOwned(ldb, &address, start, end)
 }
 
 // BlockNumber returns the block number of the chain head.

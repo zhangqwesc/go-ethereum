@@ -431,6 +431,18 @@ web3._extend({
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, web3._extend.utils.toHex]
 		}),
+		new web3._extend.Method({
+			name: 'getTokenTransfer',
+			call: 'eth_getTokenTransfer'
+			params: 4,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter, web3._extend.formatters.inputAddressFormatter, null, null]
+		}),
+		new web3._extend.Method({
+			name: 'getTokens',
+			call: 'eth_getTokens'
+			params: 3,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null, null]
+		}),
 	],
 	properties: [
 		new web3._extend.Property({
