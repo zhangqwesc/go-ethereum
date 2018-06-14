@@ -19,7 +19,6 @@ package rawdb
 
 import (
 	"encoding/binary"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -140,7 +139,7 @@ func configKey(hash common.Hash) []byte {
 type RPCTokenTransferEntry struct {
 	From  common.Address `json:"from"`
 	To    common.Address `json:"to"`
-	Value *big.Int       `json:"value"`
+	Value string         `json:"value"`
 	Hash  common.Hash    `json:"hash"`
-	Time  uint64         `json:"timestamp"`
+	Time  string         `json:"timestamp"`
 }

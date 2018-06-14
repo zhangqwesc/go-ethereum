@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -120,9 +121,9 @@ func ReadTokenTransfer(ldb *ethdb.LDBDatabase, address, tokenAddress *common.Add
 		addr, _, time, hash, direction := decodeTokenKey(it.Key())
 		addr2, value := decodeTokenValue(it.Value())
 		if direction > 0 {
-			list = append(list, RPCTokenTransferEntry{addr, addr2, &value, hash, time})
+			list = append(list, RPCTokenTransferEntry{addr, addr2, value.String(), hash, strconv.FormatUint(time, 10)})
 		} else {
-			list = append(list, RPCTokenTransferEntry{addr2, addr, &value, hash, time})
+			list = append(list, RPCTokenTransferEntry{addr2, addr, value.String(), hash, strconv.FormatUint(time, 10)})
 		}
 	}
 
