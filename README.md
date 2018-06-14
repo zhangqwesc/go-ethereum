@@ -2,6 +2,8 @@
 
 在[go-ethereum](https://github.com/ethereum/go-ethereum)的基础上，增加getAddressTransactions用于获取任意地址的交易记录。
 
+在`erc20`分支中，增加了getTokenTransfer和getTokens两个函数用于获取erc20代币的交易记录
+
 在`geth console`中
 
     eth.getAddressTransactions(address, start, end)
