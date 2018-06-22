@@ -150,6 +150,9 @@ func DeleteTokenTransfer(db DatabaseDeleter, logs []*types.Log, time uint64) {
 	timeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(timeBytes, ^time)
 	for _, log := range logs {
+		if len(log.Topics) < 3 || log.Topics[0] != TransferFilter {
+			continue
+		}
 		if err := db.Delete(encodeTokenKey(log.Topics[1], log.Address, timeBytes, log.TxHash, 1)); err != nil {
 			logger.Crit("Failed to delete token transfer for from")
 		}
