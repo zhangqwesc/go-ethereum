@@ -437,6 +437,12 @@ web3._extend({
 			params: 3,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null, null]
 		}),
+		new web3._extend.Method({
+			name: 'getTxPoolNonce',
+			call: 'eth_getTxPoolNonce',
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
 	],
 	properties: [
 		new web3._extend.Property({

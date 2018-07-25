@@ -508,6 +508,10 @@ func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	return hexutil.Uint64(header.Number.Uint64())
 }
 
+func (s *PublicBlockChainAPI) GetTxPoolNonce(ctx context.Context, address common.Address) (uint64, error) {
+	return s.b.GetPoolNonce(ctx, address)
+}
+
 // GetBalance returns the amount of wei for the given address in the state of the
 // given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
 // block numbers are also allowed.
