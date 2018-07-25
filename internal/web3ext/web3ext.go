@@ -433,15 +433,21 @@ web3._extend({
 		}),
 		new web3._extend.Method({
 			name: 'getTokenTransfer',
-			call: 'eth_getTokenTransfer'
+			call: 'eth_getTokenTransfer',
 			params: 4,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter, web3._extend.formatters.inputAddressFormatter, null, null]
 		}),
 		new web3._extend.Method({
 			name: 'getTokens',
-			call: 'eth_getTokens'
+			call: 'eth_getTokens',
 			params: 3,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null, null]
+		}),
+		new web3._extend.Method({
+			name: 'getTxPoolNonce',
+			call: 'eth_getTxPoolNonce',
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
 		}),
 	],
 	properties: [
