@@ -502,6 +502,10 @@ func (s *PublicBlockChainAPI) GetTokens(address common.Address, start, end int) 
 	return rawdb.ReadTokenOwned(ldb, &address, start, end)
 }
 
+func (s *PublicBlockChainAPI) GetTxPoolNonce(ctx context.Context, address common.Address) (uint64, error) {
+	return s.b.GetPoolNonce(ctx, address)
+}
+
 // BlockNumber returns the block number of the chain head.
 func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	header, _ := s.b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
