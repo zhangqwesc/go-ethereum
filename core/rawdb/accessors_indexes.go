@@ -177,10 +177,8 @@ func WriteAddrTxs(config *params.ChainConfig, db DatabaseWriter, block *types.Bl
 			log.Crit("Failed to store AddrTxEntry for from")
 		}
 		//indexes to address
-		if kindof == byte('s') {
-			if err := db.Put(encodeAddrTxsKey(*to, time, hash, byte('t'), kindof), putValue); err != nil {
-				log.Crit("Failed to store AddrTxEntry for to")
-			}
+		if err := db.Put(encodeAddrTxsKey(*to, time, hash, byte('t'), kindof), putValue); err != nil {
+			log.Crit("Failed to store AddrTxEntry for to")
 		}
 	}
 }
