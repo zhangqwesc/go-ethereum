@@ -191,9 +191,9 @@ func DeleteAddrTxs(config *params.ChainConfig, db DatabaseDeleter, block *types.
 		from, _ := types.Sender(signer, tx)
 		to := tx.To()
 		hash := tx.Hash()
-		kindof := byte('s')
+		kindof := byte(0)
 		if to == nil {
-			kindof = byte('c')
+			kindof = byte(1)
 		}
 
 		//delete from address
@@ -201,7 +201,7 @@ func DeleteAddrTxs(config *params.ChainConfig, db DatabaseDeleter, block *types.
 			log.Crit("Failed to delete AddrTxEntry for from")
 		}
 		//delete to address
-		if kindof == byte('s') {
+		if kindof == byte(0) {
 			if err := db.Delete(encodeAddrTxsKey(*to, time, hash, byte('t'), kindof)); err != nil {
 				log.Crit("Failed to delete AddrTxEntry for to")
 			}
