@@ -957,11 +957,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		}
 	}
 	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
-	var logs []*types.Log
-	for _, receipt := range receipts {
-		logs = append(logs, receipt.Logs...)
-	}
-	rawdb.WriteTokenTransfer(batch, block.Time().Uint64(), logs)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -982,6 +977,11 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Write the positional metadata for transaction/receipt lookups and preimages
 		rawdb.WriteTxLookupEntries(batch, block)
 		rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
+		var logs []*types.Log
+		for _, receipt := range receipts {
+			logs = append(logs, receipt.Logs...)
+		}
+		rawdb.WriteTokenTransfer(batch, block.Time().Uint64(), logs)
 
 		status = CanonStatTy
 	} else {
