@@ -116,7 +116,16 @@ func ReadAddrTxs(ldb *ethdb.LDBDatabase, address common.Address, start, end int)
 
 	it := ldb.NewIteratorWithPrefix(preBytes)
 
+	cnt := -1
+
 	for it.Next() {
+		cnt++
+		if cnt < start {
+			continue
+		}
+		if cnt >= end {
+			break
+		}
 		var entry AddrTxEntry
 		_, time, hash, _, kindof := decodeAddrTxsKey(it.Key())
 		if err := rlp.DecodeBytes(it.Value(), &entry); err != nil {
@@ -125,19 +134,13 @@ func ReadAddrTxs(ldb *ethdb.LDBDatabase, address common.Address, start, end int)
 		list = append(list, RPCAddrTxEntry{entry, time, hash, kindof})
 	}
 
+	it.Release()
+
 	if len(list) == 0 {
 		list = []RPCAddrTxEntry{}
 		return
 	}
 
-	if start >= len(list) {
-		list = []RPCAddrTxEntry{}
-		return
-	}
-	if end > len(list) || end < 0 {
-		end = len(list)
-	}
-	list = list[start:end]
 	return
 }
 
