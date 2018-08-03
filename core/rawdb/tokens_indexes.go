@@ -117,7 +117,16 @@ func ReadTokenTransfer(ldb *ethdb.LDBDatabase, address, tokenAddress *common.Add
 
 	it := ldb.NewIteratorWithPrefix(prefix)
 
+	cnt := -1
+
 	for it.Next() {
+		cnt++
+		if cnt < start {
+			continue
+		}
+		if cnt >= end {
+			break
+		}
 		addr, _, time, hash, direction := decodeTokenKey(it.Key())
 		addr2, value := decodeTokenValue(it.Value())
 		if direction > 0 {
@@ -134,14 +143,6 @@ func ReadTokenTransfer(ldb *ethdb.LDBDatabase, address, tokenAddress *common.Add
 		return
 	}
 
-	if start >= len(list) {
-		list = []RPCTokenTransferEntry{}
-		return
-	}
-	if end > len(list) || end < 0 {
-		end = len(list)
-	}
-	list = list[start:end]
 	return
 }
 
