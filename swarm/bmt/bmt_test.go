@@ -18,10 +18,8 @@ package bmt
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -29,10 +27,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/swarm/testutil"
 )
 
 // the actual data length generated (could be longer than max datalength of the BMT)
 const BufferSize = 4128
+
+const (
+	// segmentCount is the maximum number of segments of the underlying chunk
+	// Should be equal to max-chunk-data-size / hash-size
+	// Currently set to 128 == 4096 (default chunk size) / 32 (sha3.keccak256 size)
+	segmentCount = 128
+)
 
 var counts = []int{1, 2, 3, 4, 5, 8, 9, 15, 16, 17, 32, 37, 42, 53, 63, 64, 65, 111, 127, 128}
 
@@ -109,14 +115,11 @@ func TestRefHasher(t *testing.T) {
 	})
 
 	// run the tests
-	for _, x := range tests {
+	for i, x := range tests {
 		for segmentCount := x.from; segmentCount <= x.to; segmentCount++ {
 			for length := 1; length <= segmentCount*32; length++ {
 				t.Run(fmt.Sprintf("%d_segments_%d_bytes", segmentCount, length), func(t *testing.T) {
-					data := make([]byte, length)
-					if _, err := io.ReadFull(crand.Reader, data); err != nil && err != io.EOF {
-						t.Fatal(err)
-					}
+					data := testutil.RandomBytes(i, length)
 					expected := x.expected(data)
 					actual := NewRefHasher(sha3.NewKeccak256, segmentCount).Hash(data)
 					if !bytes.Equal(actual, expected) {
@@ -149,7 +152,7 @@ func TestHasherEmptyData(t *testing.T) {
 
 // tests sequential write with entire max size written in one go
 func TestSyncHasherCorrectness(t *testing.T) {
-	data := newData(BufferSize)
+	data := testutil.RandomBytes(1, BufferSize)
 	hasher := sha3.NewKeccak256
 	size := hasher().Size()
 
@@ -175,7 +178,7 @@ func TestSyncHasherCorrectness(t *testing.T) {
 
 // tests order-neutral concurrent writes with entire max size written in one go
 func TestAsyncCorrectness(t *testing.T) {
-	data := newData(BufferSize)
+	data := testutil.RandomBytes(1, BufferSize)
 	hasher := sha3.NewKeccak256
 	size := hasher().Size()
 	whs := []whenHash{first, last, random}
@@ -224,14 +227,14 @@ func TestHasherReuse(t *testing.T) {
 // tests if bmt reuse is not corrupting result
 func testHasherReuse(poolsize int, t *testing.T) {
 	hasher := sha3.NewKeccak256
-	pool := NewTreePool(hasher, SegmentCount, poolsize)
+	pool := NewTreePool(hasher, segmentCount, poolsize)
 	defer pool.Drain(0)
 	bmt := New(pool)
 
 	for i := 0; i < 100; i++ {
-		data := newData(BufferSize)
+		data := testutil.RandomBytes(1, BufferSize)
 		n := rand.Intn(bmt.Size())
-		err := testHasherCorrectness(bmt, hasher, data, n, SegmentCount)
+		err := testHasherCorrectness(bmt, hasher, data, n, segmentCount)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +244,7 @@ func testHasherReuse(poolsize int, t *testing.T) {
 // Tests if pool can be cleanly reused even in concurrent use by several hasher
 func TestBMTConcurrentUse(t *testing.T) {
 	hasher := sha3.NewKeccak256
-	pool := NewTreePool(hasher, SegmentCount, PoolSize)
+	pool := NewTreePool(hasher, segmentCount, PoolSize)
 	defer pool.Drain(0)
 	cycles := 100
 	errc := make(chan error)
@@ -249,7 +252,7 @@ func TestBMTConcurrentUse(t *testing.T) {
 	for i := 0; i < cycles; i++ {
 		go func() {
 			bmt := New(pool)
-			data := newData(BufferSize)
+			data := testutil.RandomBytes(1, BufferSize)
 			n := rand.Intn(bmt.Size())
 			errc <- testHasherCorrectness(bmt, hasher, data, n, 128)
 		}()
@@ -283,7 +286,7 @@ func TestBMTWriterBuffers(t *testing.T) {
 			defer pool.Drain(0)
 			n := count * 32
 			bmt := New(pool)
-			data := newData(n)
+			data := testutil.RandomBytes(1, n)
 			rbmt := NewRefHasher(hasher, count)
 			refHash := rbmt.Hash(data)
 			expHash := syncHash(bmt, nil, data)
@@ -406,7 +409,7 @@ func BenchmarkPool(t *testing.B) {
 
 // benchmarks simple sha3 hash on chunks
 func benchmarkSHA3(t *testing.B, n int) {
-	data := newData(n)
+	data := testutil.RandomBytes(1, n)
 	hasher := sha3.NewKeccak256
 	h := hasher()
 
@@ -425,7 +428,7 @@ func benchmarkSHA3(t *testing.B, n int) {
 func benchmarkBMTBaseline(t *testing.B, n int) {
 	hasher := sha3.NewKeccak256
 	hashSize := hasher().Size()
-	data := newData(hashSize)
+	data := testutil.RandomBytes(1, hashSize)
 
 	t.ReportAllocs()
 	t.ResetTimer()
@@ -449,9 +452,9 @@ func benchmarkBMTBaseline(t *testing.B, n int) {
 
 // benchmarks BMT Hasher
 func benchmarkBMT(t *testing.B, n int) {
-	data := newData(n)
+	data := testutil.RandomBytes(1, n)
 	hasher := sha3.NewKeccak256
-	pool := NewTreePool(hasher, SegmentCount, PoolSize)
+	pool := NewTreePool(hasher, segmentCount, PoolSize)
 	bmt := New(pool)
 
 	t.ReportAllocs()
@@ -463,12 +466,12 @@ func benchmarkBMT(t *testing.B, n int) {
 
 // benchmarks BMT hasher with asynchronous concurrent segment/section writes
 func benchmarkBMTAsync(t *testing.B, n int, wh whenHash, double bool) {
-	data := newData(n)
+	data := testutil.RandomBytes(1, n)
 	hasher := sha3.NewKeccak256
-	pool := NewTreePool(hasher, SegmentCount, PoolSize)
+	pool := NewTreePool(hasher, segmentCount, PoolSize)
 	bmt := New(pool).NewAsyncWriter(double)
 	idxs, segments := splitAndShuffle(bmt.SectionSize(), data)
-	shuffle(len(idxs), func(i int, j int) {
+	rand.Shuffle(len(idxs), func(i int, j int) {
 		idxs[i], idxs[j] = idxs[j], idxs[i]
 	})
 
@@ -481,9 +484,9 @@ func benchmarkBMTAsync(t *testing.B, n int, wh whenHash, double bool) {
 
 // benchmarks 100 concurrent bmt hashes with pool capacity
 func benchmarkPool(t *testing.B, poolsize, n int) {
-	data := newData(n)
+	data := testutil.RandomBytes(1, n)
 	hasher := sha3.NewKeccak256
-	pool := NewTreePool(hasher, SegmentCount, poolsize)
+	pool := NewTreePool(hasher, segmentCount, poolsize)
 	cycles := 100
 
 	t.ReportAllocs()
@@ -504,7 +507,7 @@ func benchmarkPool(t *testing.B, poolsize, n int) {
 
 // benchmarks the reference hasher
 func benchmarkRefHasher(t *testing.B, n int) {
-	data := newData(n)
+	data := testutil.RandomBytes(1, n)
 	hasher := sha3.NewKeccak256
 	rbmt := NewRefHasher(hasher, 128)
 
@@ -513,15 +516,6 @@ func benchmarkRefHasher(t *testing.B, n int) {
 	for i := 0; i < t.N; i++ {
 		rbmt.Hash(data)
 	}
-}
-
-func newData(bufferSize int) []byte {
-	data := make([]byte, bufferSize)
-	_, err := io.ReadFull(crand.Reader, data)
-	if err != nil {
-		panic(err.Error())
-	}
-	return data
 }
 
 // Hash hashes the data and the span using the bmt hasher
@@ -546,7 +540,7 @@ func splitAndShuffle(secsize int, data []byte) (idxs []int, segments [][]byte) {
 		section := data[i*secsize : end]
 		segments = append(segments, section)
 	}
-	shuffle(n, func(i int, j int) {
+	rand.Shuffle(n, func(i int, j int) {
 		idxs[i], idxs[j] = idxs[j], idxs[i]
 	})
 	return idxs, segments
@@ -586,30 +580,4 @@ func asyncHash(bmt SectionWriter, span []byte, l int, wh whenHash, idxs []int, s
 		return bmt.Sum(nil, l, span)
 	}
 	return <-c
-}
-
-// this is also in swarm/network_test.go
-// shuffle pseudo-randomizes the order of elements.
-// n is the number of elements. Shuffle panics if n < 0.
-// swap swaps the elements with indexes i and j.
-func shuffle(n int, swap func(i, j int)) {
-	if n < 0 {
-		panic("invalid argument to Shuffle")
-	}
-
-	// Fisher-Yates shuffle: https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
-	// Shuffle really ought not be called with n that doesn't fit in 32 bits.
-	// Not only will it take a very long time, but with 2³¹! possible permutations,
-	// there's no way that any PRNG can have a big enough internal state to
-	// generate even a minuscule percentage of the possible permutations.
-	// Nevertheless, the right API signature accepts an int n, so handle it as best we can.
-	i := n - 1
-	for ; i > 1<<31-1-1; i-- {
-		j := int(rand.Int63n(int64(i + 1)))
-		swap(i, j)
-	}
-	for ; i > 0; i-- {
-		j := int(rand.Int31n(int32(i + 1)))
-		swap(i, j)
-	}
 }
